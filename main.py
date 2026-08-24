@@ -36,7 +36,7 @@ inputs, targets = chunk_data(data, T)
 ###### PARAMETER INIT
 
 V=len(chars)
-H = 100
+H = 256
 W_xh = np.random.randn(H,V) * 0.01
 W_hh = np.random.randn(H,H) * 0.01
 W_hy = np.random.randn(V,H) * 0.01
@@ -126,15 +126,26 @@ def adagrad(dW_xh, dW_hh, dW_hy, db_h, db_y):
     b_h -= learning_rate * db_h / (np.sqrt(mem_b_h) + epsilon)
     b_y -= learning_rate * db_y / (np.sqrt(mem_b_y) + epsilon)
 
+#################### SAVE THE DATA
+
+def save_model(path, W_xh, W_hh, W_hy, b_h, b_y, char_to_idx, idx_to_char):
+    np.savez(path,
+             W_xh=W_xh, W_hh=W_hh, W_hy=W_hy,
+             b_h=b_h, b_y=b_y,
+             chars=np.array(list(char_to_idx.keys())))
+
 ######### TRAINING LOOP
+
+import matplotlib.pyplot as plt
+
+smooth_loss = -np.log(1.0/V) * T   # reasonable init value: expected loss at random init
+loss_history = []
 
 h_prev = np.zeros(H)
 i = 0
-num_iterations = 100000  # or however long you want to train
+num_iterations = 1300000 # or however long you want to train
 
 for iteration in range(num_iterations):
-    if i % 100 == 0:
-        print("Iteration ", iteration+1)
     if i == 0:
         h_prev = np.zeros(H)
 
@@ -143,11 +154,45 @@ for iteration in range(num_iterations):
     adagrad(dW_xh, dW_hh, dW_hy, db_h, db_y)
     h_prev = h_last
 
+    smooth_loss = smooth_loss * 0.999 + L * 0.001
+    if iteration % 100 == 0:
+        loss_history.append(smooth_loss)
+        print(f"iter {iteration}, loss {smooth_loss:.4f}")
+
+    if iteration % 150000 == 0 and iteration > 0:
+        save_model(f'checkpoint_H256_{iteration}.npz', W_xh, W_hh, W_hy, b_h, b_y, char_to_idx, idx_to_char)
+
     i += 1
     if i >= len(inputs):
         i = 0
 
+save_model('model_checkpoint.npz', W_xh, W_hh, W_hy, b_h, b_y, char_to_idx, idx_to_char)
+
+plt.plot(loss_history)
+plt.xlabel('iteration (x100)')
+plt.ylabel('smoothed loss')
+plt.title('Training loss')
+plt.show()
+
 print("Finished", num_iterations, " iterations.")
+
+########## LOAD DATA
+
+def load_model(path):
+    data = np.load(path)
+    W_xh = data['W_xh']
+    W_hh = data['W_hh']
+    W_hy = data['W_hy']
+    b_h = data['b_h']
+    b_y = data['b_y']
+
+    chars = sorted(data['chars'].tolist())
+    char_to_idx = {ch: i for i, ch in enumerate(chars)}
+    idx_to_char = {i: ch for i, ch in enumerate(chars)}
+
+    return W_xh, W_hh, W_hy, b_h, b_y, char_to_idx, idx_to_char
+
+#W_xh, W_hh, W_hy, b_h, b_y, char_to_idx, idx_to_char = load_model('model_checkpoint.npz')
 
 ####### RESULTS
 
