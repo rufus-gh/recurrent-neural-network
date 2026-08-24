@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.special import softmax
 
 ###### DATA LOADING
 
@@ -72,7 +73,7 @@ def forward_pass(input_chunk, target_chunk, h_prev):
 
     return L, x, h, p, h[T]
 
-L, x, h_cache, p, h_last = forward_pass(inputs[0], targets[0], np.zeros(H))
+#L, x, h_cache, p, h_last = forward_pass(inputs[0], targets[0], np.zeros(H))
 
 ############ BACKWARD PASS
 
@@ -103,4 +104,66 @@ def backward_pass(x, h_cache, p, target_chunk):
            np.clip(db_h, -5, 5),\
            np.clip(db_y, -5, 5)
 
-#backward_pass(x, h_cache, p, targets[0])
+#dW_xh, dW_hh, dW_hy, db_h, db_y = backward_pass(x, h_cache, p, targets[0])
+
+########## ADAGRAD 
+
+def adagrad(dW_xh, dW_hh, dW_hy, db_h, db_y):
+    global W_xh, W_hh, W_hy, b_h, b_y,mem_W_xh, mem_W_hh, mem_W_hy, mem_b_h, mem_b_y
+    
+    mem_W_xh += dW_xh ** 2
+    mem_W_hh += dW_hh ** 2
+    mem_W_hy += dW_hy ** 2
+    mem_b_h  += db_h  ** 2
+    mem_b_y  += db_y  ** 2
+
+    learning_rate = 0.1
+    epsilon = 1 * (10 ** (-8))
+
+    W_xh -= learning_rate * dW_xh / (np.sqrt(mem_W_xh) + epsilon)
+    W_hh -= learning_rate * dW_hh / (np.sqrt(mem_W_hh) + epsilon)
+    W_hy -= learning_rate * dW_hy / (np.sqrt(mem_W_hy) + epsilon)
+    b_h -= learning_rate * db_h / (np.sqrt(mem_b_h) + epsilon)
+    b_y -= learning_rate * db_y / (np.sqrt(mem_b_y) + epsilon)
+
+######### TRAINING LOOP
+
+h_prev = np.zeros(H)
+i = 0
+num_iterations = 100000  # or however long you want to train
+
+for iteration in range(num_iterations):
+    if i % 100 == 0:
+        print("Iteration ", iteration+1)
+    if i == 0:
+        h_prev = np.zeros(H)
+
+    L, x, h_cache, p, h_last = forward_pass(inputs[i], targets[i], h_prev)
+    dW_xh, dW_hh, dW_hy, db_h, db_y = backward_pass(x, h_cache, p, targets[i])
+    adagrad(dW_xh, dW_hh, dW_hy, db_h, db_y)
+    h_prev = h_last
+
+    i += 1
+    if i >= len(inputs):
+        i = 0
+
+print("Finished", num_iterations, " iterations.")
+
+####### RESULTS
+
+seed_char = 'a'
+
+x = one_hot_encode(char_to_idx[seed_char])
+h = h_prev
+characters = 500
+output = []
+
+for i in range(characters):
+    h = np.tanh(W_xh @ x + W_hh @ h + b_h)
+    y = W_hy @ h + b_y
+    p = softmax(y)
+    new_char = np.random.choice(chars, p=p)
+    output.append(str(new_char))
+    x = one_hot_encode(char_to_idx[new_char])
+
+print(seed_char + ''.join(output))
