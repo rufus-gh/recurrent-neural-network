@@ -30,3 +30,20 @@ def chunk_data(data, T):
 
 #print(chunk_data(list('abcdefghijklmnopqrstuvwxyz'), 5))
 inputs, targets = chunk_data(data, 25)
+
+###### PARAMETER INIT
+
+V=len(chars)
+H = 100
+W_xh = np.random.randn(H,V) * 0.01
+W_hh = np.random.randn(H,H) * 0.01
+W_hy = np.random.randn(V,H) * 0.01
+
+b_h = np.zeros(H)
+b_y = np.zeros(V)
+
+mem_W_xh = np.zeros((H,V))
+mem_W_hh = np.zeros((H,H))
+mem_W_hy = np.zeros((V,H))
+mem_b_h = np.zeros(H)
+mem_b_y = np.zeros(V)
