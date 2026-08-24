@@ -72,4 +72,35 @@ def forward_pass(input_chunk, target_chunk, h_prev):
 
     return L, x, h, p, h[T]
 
-print(forward_pass(inputs[0], targets[0], np.zeros(H))[0])
+L, x, h_cache, p, h_last = forward_pass(inputs[0], targets[0], np.zeros(H))
+
+############ BACKWARD PASS
+
+def backward_pass(x, h_cache, p, target_chunk):
+    dW_xh = np.zeros((H,V))
+    dW_hh = np.zeros((H,H))
+    dW_hy = np.zeros((V,H))
+    db_h = np.zeros(H)
+    db_y = np.zeros(V)
+
+    dh_next = np.zeros(H)
+    dh = np.zeros((T, H))
+
+    for t in range(T-1, -1, -1):
+        dy = p[t].copy()
+        dy[target_chunk[t]] -= 1
+        dW_hy += np.outer(dy, h_cache[t+1])
+        dh_t = np.transpose(W_hy) @ dy + dh_next
+        dz = dh_t * (1 - h_cache[t+1] * h_cache[t+1])
+        dW_xh += np.outer(dz, x[t])
+        dW_hh += np.outer(dz, h_cache[t])
+        db_h += dz
+        dh_next = np.transpose(W_hh) @ dz
+
+    return np.clip(dW_xh, -5, 5),\
+           np.clip(dW_hh, -5, 5),\
+           np.clip(dW_hy, -5, 5),\
+           np.clip(db_h, -5, 5),\
+           np.clip(db_y, -5, 5)
+
+#backward_pass(x, h_cache, p, targets[0])
