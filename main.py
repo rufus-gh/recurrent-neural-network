@@ -91,6 +91,7 @@ def backward_pass(x, h_cache, p, target_chunk):
         dy = p[t].copy()
         dy[target_chunk[t]] -= 1
         dW_hy += np.outer(dy, h_cache[t+1])
+        db_y += dy
         dh_t = np.transpose(W_hy) @ dy + dh_next
         dz = dh_t * (1 - h_cache[t+1] * h_cache[t+1])
         dW_xh += np.outer(dz, x[t])
@@ -143,8 +144,8 @@ loss_history = []
 
 h_prev = np.zeros(H)
 i = 0
-num_iterations = 1300000 # or however long you want to train
-
+num_iterations = 1000000 # or however long you want to train
+'''
 for iteration in range(num_iterations):
     if i == 0:
         h_prev = np.zeros(H)
@@ -175,8 +176,8 @@ plt.title('Training loss')
 plt.show()
 
 print("Finished", num_iterations, " iterations.")
-
-########## LOAD DATA
+'''
+#### LOAD DATA
 
 def load_model(path):
     data = np.load(path)
@@ -192,7 +193,7 @@ def load_model(path):
 
     return W_xh, W_hh, W_hy, b_h, b_y, char_to_idx, idx_to_char
 
-#W_xh, W_hh, W_hy, b_h, b_y, char_to_idx, idx_to_char = load_model('model_checkpoint.npz')
+W_xh, W_hh, W_hy, b_h, b_y, char_to_idx, idx_to_char = load_model('checkpoint_H256_10950000.npz')
 
 ####### RESULTS
 
@@ -200,7 +201,7 @@ seed_char = 'a'
 
 x = one_hot_encode(char_to_idx[seed_char])
 h = h_prev
-characters = 500
+characters = 5000
 output = []
 
 for i in range(characters):
