@@ -37,11 +37,14 @@ inputs, targets = chunk_data(data, T)
 
 V=len(chars)
 H = 256
-W_xh = np.random.randn(H,V) * 0.01
-W_hh = np.random.randn(H,H) * 0.01
+
+layers = 0
+
+W_xh = [np.random.randn(H,V) * 0.01 for _ in range(layers)]
+W_hh = [np.random.randn(H,H) * 0.01 for _ in range(layers)]
 W_hy = np.random.randn(V,H) * 0.01
 
-b_h = np.zeros(H)
+b_h = [np.zeros(H) for _ in range(layers)]
 b_y = np.zeros(V)
 
 mem_W_xh = np.zeros((H,V))
@@ -58,20 +61,26 @@ def one_hot_encode(char):
     return temp
 
 def forward_pass(input_chunk, target_chunk, h_prev):
+    h = [np.empty((T+1, H)) for _ in range(layers)]
+    
     L = 0
     x = np.empty((T, V))
-    h = np.empty((T+1, H))
     p = np.empty((T, V))
-    h[0] = h_prev
+    for i in range(layers):
+        h[i][0] = h_prev[i]
     for t in range(T):
         x[t] = one_hot_encode(input_chunk[t])
-        h[t+1] = np.tanh((W_xh @ x[t]) + (W_hh @ h[t]) + b_h)
-        y = W_hy @ h[t+1] + b_y
+        layer_input = x[t]
+        for i in range(layers):
+            h[i][t+1] = np.tanh((W_xh[i] @ layer_input) + (W_hh[i] @ h[i][t]) + b_h[i])
+            layer_input = h[i][t+1]
+        y = W_hy @ h[layers - 1][t+1] + b_y
         y_shifted = np.exp(y - np.max(y))
         p[t] = y_shifted / np.sum(y_shifted)
         L += -1 * np.log(p[t][target_chunk[t]])
 
-    return L, x, h, p, h[T]
+    h_last = [h[i][T] for i in range(layers)]
+    return L, x, h, p, h_last
 
 #L, x, h_cache, p, h_last = forward_pass(inputs[0], targets[0], np.zeros(H))
 

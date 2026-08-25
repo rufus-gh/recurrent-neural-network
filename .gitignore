@@ -23,3 +23,5 @@ dist/
 *.egg-info/
 
 *.log
+
+checkpoint_H256*.npz
