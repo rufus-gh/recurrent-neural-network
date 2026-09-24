@@ -1,0 +1,88 @@
+name: Build release binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            asset: rnn-macos-arm64
+            sep: ':'
+          - os: ubuntu-latest
+            asset: rnn-linux-x86_64
+            sep: ':'
+          - os: windows-latest
+            asset: rnn-windows-x86_64.exe
+            sep: ';'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install numpy pyinstaller
+
+      - name: Build binary
+        shell: bash
+        run: |
+          pyinstaller --onefile --name rnn \
+            --add-data "model_checkpoint.npz${{ matrix.sep }}." \
+            --add-data "data/input.txt${{ matrix.sep }}data" \
+            --exclude-module matplotlib \
+            --runtime-hook packaging/runtime_hook.py \
+            main.py
+
+      - name: Generate some text with it
+        shell: bash
+        run: |
+          output=$(echo "ROMEO:" | ./dist/rnn* -n 200)
+          echo "$output"
+          echo "$output" | grep -q "ROMEO:" || exit 1
+
+      - name: Rename for the release
+        shell: bash
+        run: |
+          if [ -f dist/rnn.exe ]; then
+            mv dist/rnn.exe "dist/${{ matrix.asset }}"
+          else
+            mv dist/rnn "dist/${{ matrix.asset }}"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/* \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
